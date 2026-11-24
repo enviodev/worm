@@ -4,7 +4,7 @@ A [HyperIndex](https://docs.envio.dev) indexer for [Worm](https://www.worm.wtf) 
 markets on Solana — streamed from HyperSync on mainnet.
 
 - **Dashboard:** https://enviodev.github.io/worm/ (source in `docs/`, a single static page)
-- **GraphQL:** __ENDPOINT_1__ (Envio Cloud staging)
+- **GraphQL:** https://enviodev-6c13db0.internal.hyperindex.xyz/v1/graphql (Envio Cloud staging)
 - **Coverage:** slot 391,005,474 (2026-01-03) to the chain head
 - **Backfill time:** about 5 minutes on a laptop
 
