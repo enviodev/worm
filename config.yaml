@@ -1,0 +1,69 @@
+# yaml-language-server: $schema=./node_modules/envio/svm.schema.json
+name: worm-indexer
+description: Worm (worm.wtf) on Solana — permissionless prediction markets with an order book, plus the wallet program that funds leveraged positions
+ecosystem: svm
+
+chains:
+  - id: solana # Envio chain id 7565164; HyperSync defaults to https://solana.hypersync.xyz
+    # Earliest Worm transaction HyperSync serves is slot 391,005,474 (2026-01-03).
+    start_slot: 391000000
+
+# Neither program publishes an IDL, and neither logs instruction names, so the
+# instruction names below are this indexer's own labels. Each instruction is
+# keyed by its 8-byte discriminator. Argument layouts changed between program
+# versions (trailing fields were added), so the handlers decode the raw data
+# themselves: see src/handlers/decode.ts and src/handlers/layout.ts.
+programs:
+  - name: Worm
+    program_id: SormXyTMQ69ux8yhn9CBQ8v7UuqepefMHbM5TcNDtkf
+    instructions:
+      - name: create_market
+        discriminator: "0x2323bdc19b30aacb"
+      - name: resolve_market
+        discriminator: "0x8256f768dcd3fd7c"
+      # Order-book fills. Two matched orders settle in one of three ways.
+      - name: fill_mint # a YES buyer and a NO buyer: new shares are minted
+        discriminator: "0x8a7f0e5b26577369"
+      - name: fill_swap # a buyer and a seller of the same outcome token
+        discriminator: "0xb2901ad8f1bbce82"
+      - name: fill_merge # a YES seller and a NO seller: shares are burned
+        discriminator: "0x6d3d28bbe6b087ae"
+      # Order collateral moving into and out of a wallet's escrow.
+      - name: lock
+        discriminator: "0x33c29baf6d82606a"
+      - name: unlock
+        discriminator: "0x5f81edf00831df84"
+      # USDC <-> a complete set of YES + NO shares.
+      - name: split
+        discriminator: "0x4f80d3b6ee8eed68"
+      - name: merge
+        discriminator: "0xec2fab01d2a7cc00"
+      # These three take no arguments; what happened is in the event the program
+      # logs underneath them (a CPI to itself: 8-byte tag 0x…01 + 1-byte kind).
+      - name: redeem
+        discriminator: "0xb80c569546c461e1"
+      - name: redeemed_event
+        discriminator: "0x000000000000000107"
+      - name: settle_fees
+        discriminator: "0x6c875510e9e6f8d3"
+      - name: fees_settled_event
+        discriminator: "0x000000000000000119"
+      - name: close_market
+        discriminator: "0x589af8ba300e7bf4"
+      - name: market_closed_event
+        discriminator: "0x000000000000000121"
+
+  - name: Wallet
+    program_id: WoLTqkqChjwAmYPheinNZYvUZHZyLxw6WBD3Tf3siQg
+    instructions:
+      - name: create_wallet
+        discriminator: "0x5e73ada39f81c6f9"
+      - name: deposit
+        discriminator: "0xf223c68952e1f2b6"
+      - name: withdraw
+        discriminator: "0xb712469c946da122"
+      # Collateral for a position on a leveraged market, in its two versions.
+      - name: fund_position
+        discriminator: "0x0e95b9ffb8f5991d"
+      - name: fund_position_v1
+        discriminator: "0xf7e40bfd5490cc16"

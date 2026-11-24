@@ -1,0 +1,195 @@
+# Units: USDC and outcome shares are raw atoms (6 decimals each).
+# Prices are the YES price in millionths of a dollar: 540000 = $0.54.
+
+enum MarketStatus {
+  OPEN
+  RESOLVED
+}
+
+enum Outcome {
+  YES
+  NO
+  "Resolved at 50/50: each share redeems for $0.50."
+  SPLIT
+}
+
+enum FillKind {
+  "A YES buyer met a NO buyer; new shares were minted against their USDC."
+  MINT
+  "A buyer met a seller of the same outcome token."
+  SWAP
+  "A YES seller met a NO seller; their shares were burned for USDC."
+  MERGE
+}
+
+"Protocol-wide totals. Single row, id `worm`."
+type Protocol {
+  id: ID!
+  marketCount: Int!
+  resolvedCount: Int!
+  "Resolved markets by outcome."
+  yesCount: Int!
+  noCount: Int!
+  splitCount: Int!
+  "Markets with at least one order-book fill."
+  tradedMarketCount: Int!
+  fillCount: Int!
+  "USDC that changed hands in order-book fills, before fees."
+  volume: BigInt!
+  "Fees charged on fills, both sides."
+  fees: BigInt!
+  "The market creators' half of settled fees."
+  creatorFees: BigInt!
+  "Wallets with at least one fill."
+  traderCount: Int!
+  lockCount: Int!
+  unlockCount: Int!
+  "USDC moved into order escrow (outcome-token locks are counted, not summed)."
+  usdcLocked: BigInt!
+  usdcUnlocked: BigInt!
+  "Wallets that have locked order collateral."
+  lockerCount: Int!
+  redemptionCount: Int!
+  "USDC paid to holders after resolution."
+  redeemed: BigInt!
+  "USDC split into complete sets of shares, and merged back."
+  splitVolume: BigInt!
+  mergeVolume: BigInt!
+  walletCount: Int!
+  walletDeposits: BigInt!
+  walletWithdrawals: BigInt!
+  "Positions funded on leveraged markets."
+  positionCount: Int!
+  positionCollateral: BigInt!
+  positionWalletCount: Int!
+  lastSlot: Int!
+  lastTime: Int!
+}
+
+type Market {
+  "The market's condition id, as used by Worm's API and URLs."
+  id: ID!
+  "As stored on-chain, which keeps the first 40 bytes. Null for markets created before 2026-02-01."
+  title: String
+  "The account the creator's half of the fees is paid to; Worm's own for curated markets."
+  creator: String
+  yesMint: String
+  noMint: String
+  status: MarketStatus! @index
+  outcome: Outcome @index
+  "Null when the market predates this indexer's first slot."
+  createdAt: Int @index
+  resolvedAt: Int
+  fillCount: Int! @index
+  volume: BigInt! @index
+  "Shares matched across all fills."
+  shares: BigInt!
+  "Fees charged on this market's fills."
+  fees: BigInt!
+  "Fees paid out when the market was settled: the creator's half, and the total."
+  creatorFeesPaid: BigInt!
+  feesSettled: BigInt!
+  "YES price at the latest fill."
+  lastPrice: Int
+  lastFillAt: Int
+  "USDC paid to holders after resolution."
+  redeemed: BigInt!
+  fills: [Fill!]! @derivedFrom(field: "market")
+}
+
+type Fill {
+  id: ID!
+  market: Market!
+  kind: FillKind! @index
+  shares: BigInt!
+  "YES price in millionths of a dollar."
+  price: Int!
+  "USDC that changed hands before fees. MINT and MERGE: equal to `shares`. SWAP: shares × the traded token's price."
+  usdc: BigInt!
+  fee: BigInt!
+  "MINT: the YES buyer. SWAP: the buyer. MERGE: the YES seller."
+  partyA: Account!
+  "MINT: the NO buyer. SWAP: the seller. MERGE: the NO seller."
+  partyB: Account!
+  "SWAP only: whether the YES token traded."
+  isYes: Boolean
+  slot: Int! @index
+  time: Int! @index
+  txSignature: String!
+}
+
+"A wallet as the Worm program sees it: a plain key, or a smart wallet made by the wallet program."
+type Account {
+  id: ID!
+  "Set for wallets made by the wallet program: the key that controls it."
+  owner: String @index
+  fillCount: Int! @index
+  volume: BigInt!
+  lockCount: Int!
+  usdcLocked: BigInt!
+  usdcUnlocked: BigInt!
+  redeemed: BigInt!
+  deposits: BigInt!
+  withdrawals: BigInt!
+  positionCount: Int!
+  positionCollateral: BigInt!
+  firstSeen: Int!
+  lastSeen: Int!
+}
+
+"A payout after resolution. Rows with nothing burned and nothing paid are not stored."
+type Redemption {
+  id: ID!
+  market: Market!
+  account: Account!
+  payout: BigInt!
+  yesBurned: BigInt!
+  noBurned: BigInt!
+  slot: Int!
+  time: Int! @index
+  txSignature: String!
+}
+
+"Collateral a wallet put behind a position on a leveraged market. The market itself is not named on-chain."
+type PositionFunding {
+  id: ID!
+  account: Account!
+  "The position's own account."
+  position: String!
+  collateral: BigInt!
+  "Leverage × 100: 150 = 1.5x."
+  leverage: Int! @index
+  "Null in the first version of the instruction, which did not carry a side."
+  isYes: Boolean
+  slot: Int!
+  time: Int! @index
+  txSignature: String!
+}
+
+"Position fundings grouped by leverage."
+type LeverageTier {
+  "Leverage × 100, as a string: `150` = 1.5x."
+  id: ID!
+  leverage: Int!
+  count: Int!
+  collateral: BigInt!
+}
+
+"One row per UTC day."
+type DailyStat {
+  "Days since the Unix epoch."
+  id: ID!
+  "Start of the day, Unix seconds."
+  date: Int! @index
+  marketsCreated: Int!
+  marketsResolved: Int!
+  fills: Int!
+  volume: BigInt!
+  fees: BigInt!
+  locks: Int!
+  usdcLocked: BigInt!
+  redeemed: BigInt!
+  walletsCreated: Int!
+  positions: Int!
+  positionCollateral: BigInt!
+}
